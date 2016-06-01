@@ -1,0 +1,538 @@
+<preCompilationAnalysis file="../bindings/peripherals/i2cDevice.xc">
+<fDef name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="1"/>
+<fDef name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="2"/>
+<fDef name="i2c_master_do_rx" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="startBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="2"/>
+<fDef name="stopBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="1"/>
+<fDef name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="2"/>
+<fDef name="waitHalf" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="1"/>
+<fDef name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" noreturn="false" doNotSpecialize="false" numParams="1"/>
+<fDef name="I2CDeviceInit" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="I2CDeviceReadRegister" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="I2CDeviceWriteRegister" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="delay_microseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
+<fDef name="delay_milliseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
+<fDef name="delay_seconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
+<fDef name="xmosI2CDeviceInit" global="true" noreturn="false" doNotSpecialize="false" numParams="2"/>
+<fDef name="xmosI2CDeviceReadRegister" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="xmosI2CDeviceWriteRegister" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fCall name="delay_ticks_longlong" global="true" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="delay_ticks_longlong" global="true" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="delay_ticks_longlong" global="true" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="xmosI2CDeviceInit" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <passThroughArg param="3" caller="I2CDeviceInit" global="true"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="xmosI2CDeviceReadRegister" global="true" numArgs="4">
+  <arg num="0">
+    <passThroughArg param="0" caller="I2CDeviceReadRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+  <arg num="1">
+    <passThroughArg param="1" caller="I2CDeviceReadRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+  <arg num="2">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="3">
+    <passThroughArg param="3" caller="I2CDeviceReadRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="xmosI2CDeviceWriteRegister" global="true" numArgs="4">
+  <arg num="0">
+    <passThroughArg param="0" caller="I2CDeviceWriteRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+  <arg num="1">
+    <passThroughArg param="1" caller="I2CDeviceWriteRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+  <arg num="2">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="3">
+    <passThroughArg param="3" caller="I2CDeviceWriteRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_timer_after" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <passThroughArg param="0" caller="waitHalf" global="false" unit="../bindings/peripherals/i2cDevice.xc"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <passThroughArg param="0" caller="waitHalf" global="false" unit="../bindings/peripherals/i2cDevice.xc"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_pins_eq" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_pins_ne" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_pins_ne" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_timer_after" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitHalf" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_pins_eq" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitHalf" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_bitrev" global="true" numArgs="1">
+  <arg num="0">
+    <passThroughArg param="1" caller="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc"/>
+    <values>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="0"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="0"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="highPulse" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="stopBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="startBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="waitQuarter" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="startBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="0"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="i2c_master_do_rx" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="4">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2">
+    <passThroughArg param="3" caller="xmosI2CDeviceReadRegister" global="true"/>
+    <values>
+    </values>
+  </arg>
+  <arg num="3">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="startBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="intval"><intval isSigned="true" val="1"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="tx8" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="floatWires" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="stopBit" global="false" unit="../bindings/peripherals/i2cDevice.xc" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+</preCompilationAnalysis>

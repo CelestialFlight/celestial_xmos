@@ -1,0 +1,3 @@
+[submodule "mflight"]
+	path = mflight
+	url = https://github.com/jmarple/mflight

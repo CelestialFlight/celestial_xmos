@@ -1,0 +1,20 @@
+<preCompilationAnalysis file="../mflight/modules/filters/IMU/kalmanFilterSingleAxis.c">
+  <fCall global="true" name="KalmanFilterSingleAxisInit"/>
+  <fCall global="true" name="KalmanFilterSingleAxisInit.nstackwords"/>
+  <fCall global="true" name="KalmanFilterSingleAxisInit.maxcores"/>
+  <fCall global="true" name="KalmanFilterSingleAxisInit.maxtimers"/>
+  <fCall global="true" name="KalmanFilterSingleAxisInit.maxchanends"/>
+  <fCall global="true" name="KalmanFilterSingleAxisUpdate"/>
+  <fCall global="true" name="KalmanFilterSingleAxisUpdate.nstackwords"/>
+  <fCall global="true" name="__divdf3.nstackwords"/>
+  <fCall global="true" name="__adddf3.nstackwords"/>
+  <fCall global="true" name="__muldf3.nstackwords"/>
+  <fCall global="true" name="__subdf3.nstackwords"/>
+  <fCall global="true" name="KalmanFilterSingleAxisUpdate.maxcores"/>
+  <fCall global="true" name="KalmanFilterSingleAxisUpdate.maxtimers"/>
+  <fCall global="true" name="KalmanFilterSingleAxisUpdate.maxchanends"/>
+  <fCall global="true" name="__muldf3"/>
+  <fCall global="true" name="__adddf3"/>
+  <fCall global="true" name="__subdf3"/>
+  <fCall global="true" name="__divdf3"/>
+</preCompilationAnalysis>
