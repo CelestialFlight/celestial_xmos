@@ -3,8 +3,6 @@
 
 #define TIMER_TICKS_PER_USEC 100
 
-port PWM_PORT = XS1_PORT_4A;
-
 extern "C"
 {
     #include "pwmOutput.h"
@@ -53,6 +51,13 @@ void pwmTask(struct PWMOutput* pwm)
         startTime[j] = 0;
     }
 
+    // Determine which port to turn on and off.
+    port* PWM_PORT;
+    unsafe
+    {
+        PWM_PORT = (pwm->motorData);
+    }
+
     while (1)
     {
         select
@@ -82,13 +87,13 @@ void pwmTask(struct PWMOutput* pwm)
                     startTime[q] = (1000 + pwm->motors[q]) * TIMER_TICKS_PER_USEC;
                     pwmTime[q] += startTime[q];
                     portValue |= 1 << q;
-                    PWM_PORT <: portValue & 0xF;
+                    *PWM_PORT <: portValue & 0xF;
                 }
                 else
                 {
                     pwmTime[q] += 20000*TIMER_TICKS_PER_USEC - startTime[q];
                     portValue &= ~(1 << q);
-                    PWM_PORT <: portValue & 0xF;
+                    *PWM_PORT <: portValue & 0xF;
                 }
                 break;
         }

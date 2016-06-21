@@ -1,8 +1,43 @@
-#include "ppmInput_xmos.h"
 #include "common.h"
 #include <xs1.h>
 
-port ppmPort = XS1_PORT_1C;
+#include "ppmInput_xmos.h"
+
+extern "C"
+{
+    int PPMInputInit(struct PPMInput* ppm, void* data)
+    {
+       int i;
+       for (i = 0; i < MAX_CHANNELS; i++)
+       {
+           ppm->channelsBias[i] = 0;
+       }
+       return 0;
+    }
+
+    void PPMInputSetBias(struct PPMInput* ppm, int channel, uint16_t bias)
+    {
+        if (channel < MAX_CHANNELS)
+        {
+            ppm->channelsBias[channel] = bias;
+        }
+    }
+
+    int PPMInputUpdate(struct PPMInput* ppm)
+    {
+        return 0;
+    }
+
+    int32_t PPMInputGetValue(struct PPMInput* ppm, int channel)
+    {
+        if (channel < MAX_CHANNELS)
+        {
+            return ppm->channels[channel] - ppm->channelsBias[channel];
+        }
+
+        return 0;
+    }
+}
 
 void PPMCallback(struct PPMInput* ppm)
 {
@@ -26,7 +61,7 @@ void PPMCallback(struct PPMInput* ppm)
     if (diffTime > MIN_PPM_SYNC_PULSE)
     {
         ppm->_edgeTimes[ppm->_index] = diffTime;
-        ppm->_edgeTimes[ppm->_index+1] = 0;
+        //ppm->_edgeTimes[ppm->_index+1] = 0;
 
         if (ppm->_dataCorrupt <= 0)
         {
@@ -49,7 +84,7 @@ void PPMCallback(struct PPMInput* ppm)
         ppm->_index = 0;
     }
     // Save the pulse time.
-    else if (ppm->_index < MAX_CHANNELS)
+    else if (ppm->_index < MAX_CHANNELS*2-1)
     {
         ppm->_edgeTimes[ppm->_index] = diffTime;
         ppm->_index += 1;
@@ -57,7 +92,7 @@ void PPMCallback(struct PPMInput* ppm)
 }
 
 [[combinable]]
-void ppmInputTask(struct PPMInput* ppm)
+void ppmInputTask(struct PPMInput* ppm, port ppmPort)
 {
     uint8_t pinState;
     ppmPort :> pinState;
@@ -73,7 +108,6 @@ void ppmInputTask(struct PPMInput* ppm)
             // Fired on pin change
             case ppmPort when pinsneq(pinState) :> pinState:
                 PPMCallback(ppm);
-                //testingPort <: pinState;
                 break;
         }
     }

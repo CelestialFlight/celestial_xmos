@@ -1,9 +1,12 @@
 #ifndef __PPM_INPUT_XMOS_H__
 #define __PPM_INPUT_XMOS_H__
 
-#include "ppmInput.h"
+extern "C"
+{
+    #include "ppmInput.h"
+}
 
 [[combinable]]
-void ppmInputTask(struct PPMInput* ppm);
+void ppmInputTask(struct PPMInput* ppm, port ppmPort);
 
 #endif
