@@ -1,4 +1,12 @@
 eclipse.preferences.version=1
+environment/project/com.xmos.cdt.toolchain.1154319798/XDE_BUILD/delimiter=\:
+environment/project/com.xmos.cdt.toolchain.1154319798/XDE_BUILD/operation=append
+environment/project/com.xmos.cdt.toolchain.1154319798/XDE_BUILD/value=true
+environment/project/com.xmos.cdt.toolchain.1154319798/XMOS_MODULE_PATH/delimiter=\:
+environment/project/com.xmos.cdt.toolchain.1154319798/XMOS_MODULE_PATH/operation=append
+environment/project/com.xmos.cdt.toolchain.1154319798/XMOS_MODULE_PATH/value=/home/jmarple/code/xmos_workspace/fooTest\:/home/jmarple/code/sc_sdcard/module_sdcardSPI
+environment/project/com.xmos.cdt.toolchain.1154319798/append=true
+environment/project/com.xmos.cdt.toolchain.1154319798/appendContributed=true
 environment/project/com.xmos.cdt.toolchain.1938836467/XDE_BUILD/delimiter=;
 environment/project/com.xmos.cdt.toolchain.1938836467/XDE_BUILD/operation=append
 environment/project/com.xmos.cdt.toolchain.1938836467/XDE_BUILD/value=true

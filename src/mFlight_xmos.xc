@@ -14,11 +14,15 @@ extern "C"
     #include "filters/IMU/kalmanFilterSingleAxis.h"
     #include "filters/IMU/complementaryFilter.h"
     #include "filters/AHRS/MadgwickFilter.h"
+    #include "filters/lowpass/lowpassFilter.h"
     #include "feedback/PIDBasic.h"
     #include "sensors/imu/MPU/MPU6500.h"
     #include "sensors/magnetometer/MAG3110/MAG3110.h"
     #include "sensors/magnetometer/LSM303/LSM303.h"
     #include "sensors/barometer/BMP280/BMP280.h"
+    #include "peripherals/sdcard.h"
+    #include "datalogging/dataLogger.h"
+    #include "ff.h"
 }
 
 // Include xmos specific binding header files.
@@ -26,6 +30,8 @@ extern "C"
 
 struct UartOutput uart1;
 struct PPMInput ppm;
+struct SDCard card;
+struct DataLogger dl;
 
 port uart1Port = XS1_PORT_1F;
 port pwmPort = XS1_PORT_4E;
@@ -35,7 +41,7 @@ struct I2CDevicePortData imuI2cPort = {
     XS1_PORT_1J,
     XS1_PORT_1K,
     1000, // 100Khz
-};
+    };
 
 void stablizeFlightMode(
     struct MPU6500* pImu,
@@ -55,6 +61,11 @@ void stablizeFlightMode(
     const double RC_PITCH_VEL = 1.74533;
     const double RC_ROLL_VEL = 1.74533;
     const double RC_YAW_VEL = 1.74533;
+
+    //
+    const double RC_PITCH_POS = 3.00;
+    const double RC_ROLL_POS = 3.00;
+    const double RC_YAW_POS = 1.00;
 
     // Maps the direction multiplier to the direction of turn of the
     // quadcopter. Ie. a 1 will say "Pitch foward" is the correct
@@ -105,6 +116,31 @@ void stablizeFlightMode(
     struct ComplementaryFilter cfRoll;
     ComplementaryFilterInit(&cfPitch, 0.995);
     ComplementaryFilterInit(&cfRoll, 0.995);*/
+    // Setup SD card set to data.txt as a datalogger.
+
+    SDCardInit(&card);
+    if (!SDCardMount(&card))
+    {
+        printf("F = %ld, %ld\n", card.freeSpace, card.totalSpace);
+
+        // Delete and re-create data.txt
+        SDCardUnlink(&card, "data.txt");
+        SDCardOpen(&card, "data.txt");
+
+        // Create a datalogger that saves to the sd card buffer.
+        DataLoggerInit(&dl, &card.buf);
+    }
+    else
+    {
+        printf("SD Card Error\n");
+
+        // Create a datalogger that doesn't save anything as there is
+        // no sd card connected to the drone atm.
+        DataLoggerInit(&dl, 0);
+    }
+
+    DataLoggerPrintf(&dl, "Initializing rate mode controllers\n");
+    DataLoggerForceSave(&dl);
 
     // Kalman filter for estimating true quadcopter angle.
     struct KalmanFilterSingleAxis kfPitch;
@@ -112,18 +148,33 @@ void stablizeFlightMode(
     KalmanFilterSingleAxisInit(&kfPitch, 0.001, 0.003, 0.03);
     KalmanFilterSingleAxisInit(&kfRoll, 0.001, 0.003, 0.03);
 
+    struct LowPassFilter accUpFilter;
+    struct LowPassFilter accForwardFilter;
+    struct LowPassFilter accRightFilter;
+    LowPassFilterInit(&accUpFilter);
+    LowPassFilterInit(&accForwardFilter);
+    LowPassFilterInit(&accRightFilter);
+
     // Rate PID's for angular velocity control.
     struct PIDBasic ratePitchPID;
     struct PIDBasic rateRollPID;
     struct PIDBasic rateYawPID;
-    PIDBasicInit(&ratePitchPID, 50, 0, 0);
-    PIDBasicInit(&rateRollPID, 50, 0, 0);
-    PIDBasicInit(&rateYawPID, 50, 0, 0);
+    PIDBasicInit(&ratePitchPID, 40, 200, 0);
+    PIDBasicInit(&rateRollPID, 40, 200, 0);
+    PIDBasicInit(&rateYawPID, 120, 200, 0);
+    ratePitchPID.maxIntegral = 200;
+    rateRollPID.maxIntegral = 200;
+    rateYawPID.maxIntegral = 100;
+
+    struct PIDBasic posPitchPID;
+    struct PIDBasic posRollPID;
+    PIDBasicInit(&posPitchPID, 10, 0, 0);
+    PIDBasicInit(&posRollPID, 10, 0, 0);
 
     UartOutputPrintf(pUart1, "Update Thread Loaded\n");
 
     // Allow user to plug in battery and not mess up calibration
-    delay_milliseconds(500);
+    delay_milliseconds(3000);
 
     // Calibrate gyro.
     int i;
@@ -148,7 +199,7 @@ void stablizeFlightMode(
     PPMInputSetBias(pPpm, RC_ROLL_CH, RC_STICK_BIAS_ROLL);
     PPMInputSetBias(pPpm, RC_YAW_CH, RC_STICK_BIAS_YAW);
 
-    double dT = 0.01;
+    double dT = 0.003;
 
     int tmp = 0;
 
@@ -163,6 +214,10 @@ void stablizeFlightMode(
         int rollValue = PPMInputGetValue(pPpm, RC_ROLL_CH);
         int yawValue = PPMInputGetValue(pPpm, RC_YAW_CH);
         int flightModeValue = PPMInputGetValue(pPpm, RC_FLIGHT_MODE_CH);
+
+        //double targetPitchForwardPos = pitchValue / 500 * RC_PITCH_POS;
+        //double targetRollForwardPos = pitchValue / 500 * RC_ROLL_POS;
+        //double targetYawForwardPos = pitchValue / 500 * RC_YAW_POS;
 
         // Calculate target angular velocities from controller stick values.
         // (rad/sec)
@@ -180,6 +235,10 @@ void stablizeFlightMode(
         double accFor = Vector3DGetValue(&pImu->accelData, RC_ACC_FORWARD);
         double accRight = Vector3DGetValue(&pImu->accelData, RC_ACC_RIGHT);
 
+        accUp = LowPassFilterSample(&accUpFilter, accUp);
+        accFor = LowPassFilterSample(&accForwardFilter, accFor);
+        accRight = LowPassFilterSample(&accRightFilter, accRight);
+
         // Calculate pitch/roll angles from accelerometer data. (radians)
         double pitchForwardAngle =
             -atan2(accFor * RC_ACC_FORWARD_DIR,
@@ -192,6 +251,15 @@ void stablizeFlightMode(
         KalmanFilterSingleAxisUpdate(&kfPitch, pitchForwardAngle, gyroPitchVel, dT);
         KalmanFilterSingleAxisUpdate(&kfRoll, rollRightAngle, gyroRollVel, dT);
 
+        double pitchAngle = kfPitch.state[0];
+        double rollAngle = kfRoll.state[0];
+
+        //double angPosPitchError = targetPitchForwardPos - pitchAngle;
+        //double angPosRollError = targetRollForwardPos - rollAngle;
+
+       // double targetPitchForwardVel = PIDBasicUpdate(&posPitchPID, angPosPitchError, dT);
+        //double targetRollRightVel = PIDBasicUpdate(&posRollPID, angPosRollError, dT);
+
         // Calculate angular velocity errors.
         double angVelPitchError =
             targetPitchForwardVel - gyroPitchVel * RC_PITCH_FORWARD_DIR;
@@ -203,14 +271,14 @@ void stablizeFlightMode(
         // Quadcopter is "Armed" when flight mode switch is triggered high.
         if (flightModeValue > 1700)
         {
-            int pitchPWM = PIDBasicUpdate(&ratePitchPID, angVelPitchError, dT);
+           int pitchPWM = PIDBasicUpdate(&ratePitchPID, angVelPitchError, dT);
             int rollPWM = PIDBasicUpdate(&rateRollPID, angVelRollError, dT);
             int yawPWM = PIDBasicUpdate(&rateYawPID, angVelYawError, dT);
 
-            if (tmp++ % 4 == 0)
+            //if (tmp++ % 4 == 0)
             /*UartOutputPrintf(pUart1, "!ANG:%f,%f,%f\n",
                     kfRoll.state[0] * 57.2958, kfPitch.state[0] * 57.2958, 0);*/
-            UartOutputPrintf(pUart1, "::%f %f %f\n", angVelPitchError, angVelRollError, angVelYawError);
+            //UartOutputPrintf(pUart1, "::%f %f %f\n", angVelPitchError, angVelRollError, angVelYawError);
 
             int brPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_BR],
                 throttleValue, pitchPWM, rollPWM, yawPWM);
@@ -220,6 +288,11 @@ void stablizeFlightMode(
                 throttleValue, pitchPWM, rollPWM, yawPWM);
             int flPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_FL],
                 throttleValue, pitchPWM, rollPWM, yawPWM);
+
+            DataLoggerPrintf(&dl, "%f %f %f %f %f %f %d %d %d %d\n",
+                targetPitchForwardVel, targetRollRightVel, targetYawRightVel,
+                gyroPitchVel, gyroRollVel, gyroYawVel,
+                brPWM, blPWM, frPWM, flPWM);
 
             PWMOutputSetMotor(pwm, PWM_PROP_TR, frPWM);
             PWMOutputSetMotor(pwm, PWM_PROP_TL, flPWM);
@@ -274,12 +347,26 @@ void stablizeFlightMode(
     }
 }}
 
+port ledPort = XS1_PORT_1A;
+
+void test(struct DataLogger* dl)
+{
+    DataLoggerPrintf(dl, "Data = %d %d %f\n", 1, 2, 3.1415);
+    DataLoggerPrintf(dl, "End of file :)\n");
+    DataLoggerForceSave(dl);
+
+    printf("Card closed!\n");
+
+    while (1);
+}
+
 int main()
 {
     struct LSM303 mag;
     struct BMP280 bar;
     struct MPU6500 imu;
     struct PWMOutput pwm;
+
 
     // Initiate hardware.
     int mpuResult = MPU6500Init(&imu, &imuI2cPort);
@@ -306,6 +393,8 @@ int main()
     PWMOutputInit(&pwm, &pwmPort);
     PPMInputInit(&ppm, &ppmPort);
 
+
+
     unsafe
     {
         // Casting uart1 to a pointer gets around the "parallel usage rules"
@@ -313,9 +402,12 @@ int main()
         struct UartOutput* unsafe pUart1;
         struct PWMOutput* unsafe pPwm;
         struct PPMInput* unsafe pPpm;
+        struct DataLogger* unsafe pDl;
+        struct SDCard* unsafe pCard;
         pUart1 = &uart1;
         pPwm = &pwm;
         pPpm = &ppm;
+        pCard = &card;
 
         par
         {
@@ -330,6 +422,10 @@ int main()
 
             // Updates System Time
             SystemTimeTask();
+
+            //test((struct DataLogger*)pDl);
+
+            SDCardTask((struct SDCard*)pCard);
 
             stablizeFlightMode(
                 &imu,

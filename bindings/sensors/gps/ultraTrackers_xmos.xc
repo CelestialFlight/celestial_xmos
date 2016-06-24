@@ -1,7 +1,6 @@
 #include "ultraTrackers_xmos.h"
 
 in port ultraPort = XS1_PORT_4C;
-out port ledPort = XS1_PORT_1A;
 
 void UltrasonicTrackers(struct SerialBuffer* buf)
 {

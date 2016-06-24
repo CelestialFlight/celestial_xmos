@@ -9,12 +9,15 @@
 .globl SerialBufferPush.nstackwords
 .linkset SerialBufferPush.nstackwords, 100
 .globl SerialBufferSaveDouble.nstackwords
-.linkset SerialBufferSaveDouble.nstackwords, 100
+#.linkset SerialBufferSaveDouble.nstackwords, 100
 .globl SerialBufferSaveInt.nstackwords
-.linkset SerialBufferSaveInt.nstackwords, 100
+#.linkset SerialBufferSaveInt.nstackwords, 100
 .globl SerialBufferSaveString.nstackwords
-.linkset SerialBufferSaveString.nstackwords, 100
+#.linkset SerialBufferSaveString.nstackwords, 100
 .globl SerialBufferPrintfVargs.nstackwords
 .linkset SerialBufferPrintfVargs.nstackwords, 100
 .globl SerialBufferSaveChar.nstackwords
-.linkset SerialBufferSaveChar.nstackwords, 100
+#.linkset SerialBufferSaveChar.nstackwords, 100
+
+.globl DataLoggerForceSave.nstackwords
+.linkset DataLoggerForceSave.nstackwords, 100
