@@ -18,6 +18,11 @@ uint64_t SystemTime()
     }
 }
 
+void SystemWaitUntil(uint64_t waittime)
+{
+    // TODO: Implement this function.
+}
+
 // While this task can be combined, it causes
 // the usec ticks to be really inaccurate
 // TODO: Have the timer correct itself when

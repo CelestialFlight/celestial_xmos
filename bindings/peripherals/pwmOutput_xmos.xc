@@ -6,8 +6,11 @@
 extern "C"
 {
     #include "pwmOutput.h"
+    #define va_list __VALIST
+    #define __FUNCTION__ "Unkown"
+    #include "common/error.h"
 
-    void PWMOutputInit(struct PWMOutput* pwm, void* data)
+    void PWMOutputInit(struct PWMOutput* pwm, void* data, uint32_t updateFreq)
     {
         int i;
         for (i = 0; i < MAX_MOTORS; i++)
@@ -16,6 +19,7 @@ extern "C"
         }
 
         pwm->motorData = data;
+        pwm->updateFrequency = updateFreq;
     }
 
     void PWMOutputSetMotor(struct PWMOutput* pwm, uint8_t motor, int16_t value)
@@ -51,6 +55,16 @@ void pwmTask(struct PWMOutput* pwm)
         startTime[j] = 0;
     }
 
+    // Test that the updateFrequencies are in spec.
+    warning(pwm->updateFrequency > 50);
+    warning(pwm->updateFrequency < 450);
+    if (pwm->updateFrequency < 50 || pwm->updateFrequency > 450)
+        pwm->updateFrequency = 50;
+
+    // The period between each signal = 1,000,000usec / Freq
+    // Ex. 1000000usec/50Hz = 20000usecs between pulses.
+    uint32_t loopLength = 1000000/pwm->updateFrequency;
+
     // Determine which port to turn on and off.
     port* PWM_PORT;
     unsafe
@@ -62,20 +76,6 @@ void pwmTask(struct PWMOutput* pwm)
     {
         select
         {
-            // Sets a value for a specific motor
-            /*case i.setValue(uint8_t motor, int16_t value):
-
-                // Defensive check
-                if (motor >= MAX_MOTORS) break;
-
-                // Clip value between min and max value
-                if (value < MIN_MOTOR_VALUE) value = MIN_MOTOR_VALUE;
-                else if (value > MAX_MOTOR_VALUE) value = MAX_MOTOR_VALUE;
-
-                motors[motor] = value;
-
-                break;*/
-
             // Turn signal high or low depending on what state the signal
             // is in.
             case (size_t q = 0; q < MAX_MOTORS; q++)
@@ -91,7 +91,7 @@ void pwmTask(struct PWMOutput* pwm)
                 }
                 else
                 {
-                    pwmTime[q] += 20000*TIMER_TICKS_PER_USEC - startTime[q];
+                    pwmTime[q] += loopLength*TIMER_TICKS_PER_USEC - startTime[q];
                     portValue &= ~(1 << q);
                     *PWM_PORT <: portValue & 0xF;
                 }

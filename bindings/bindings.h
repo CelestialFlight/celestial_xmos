@@ -6,3 +6,4 @@
 #include "peripherals/ppmInput_xmos.h"
 #include "peripherals/sdcard_xmos.h"
 #include "sensors/gps/ultraTrackers_xmos.h"
+#include "sensors/ultrasonic/HCSR04/HCSR04_xmos.h"

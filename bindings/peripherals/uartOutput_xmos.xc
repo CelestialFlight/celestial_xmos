@@ -12,6 +12,7 @@ extern "C"
     void UartOutputInit(struct UartOutput* output, uint32_t baud)
     {
         UartOutputSetBaud(output, baud);
+        SerialBufferInit(&output->buf, 256);
 
         // Nothing else to do as the hardware will be setup in it's
         // own task.
@@ -19,7 +20,7 @@ extern "C"
 
     void UartOutputDeinit(struct UartOutput* output)
     {
-        // Nothing to do.
+        SerialBufferDeInit(&output->buf);
     }
 
     void UartOutputSetBaud(struct UartOutput* output, uint32_t baud)

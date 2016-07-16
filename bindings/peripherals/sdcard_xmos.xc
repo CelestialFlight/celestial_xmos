@@ -5,9 +5,8 @@ extern "C"
     #define va_list __VALIST
     #include "sdcard.h"
     #include "ff.h"
+    #include "common/common.h"
 }
-
-static void __SDCardSendBuffer(volatile struct SDCard* unsafe card);
 
 void SDCardTask(volatile struct SDCard* unsafe card)
 {
@@ -15,38 +14,20 @@ void SDCardTask(volatile struct SDCard* unsafe card)
     {
         while(1==1)
         {
-            if (card->shouldSendBuffer == 1)
+            int i;
+            for (i = 0; i < _SD_MAX_FILES; i++)
             {
-                __SDCardSendBuffer(card);
-                card->shouldSendBuffer = 0;
+                // If a force save was requested, or 5 seconds has ellasped
+                // since the last save.
+                if (card->files[i].shouldSendBuffer == 1
+                    || SystemTime() - card->files[i].lastUpdate > 5000000)
+                {
+                    __SDCardSendBuffer(&card->files[i]);
+                    card->files[i].shouldSendBuffer = 0;
+                    card->files[i].lastUpdate = SystemTime();
+                }
             }
         }
     }
 }
 
-#define BUF_SIZE 2048
-
-static void __SDCardSendBuffer(volatile struct SDCard* unsafe card)
-{
-    unsafe
-    {
-        uint8_t buf[BUF_SIZE];
-        uint16_t index = 0;
-
-        while (SerialBufferIsEmpty(&card->buf) == 0)
-        {
-            buf[index] = SerialBufferPop(&card->buf);
-            index++;
-
-            if (index >= BUF_SIZE || SerialBufferIsEmpty(&card->buf))
-            {
-                // START CRITICAL SECTION.
-                // If power were to be cut here, the data could be corrupt!
-                SDCardWrite(card, buf, index);
-                SDCardSync(card);
-                // END CRITICAL SECTION
-                index = 0;
-            }
-        }
-    }
-}

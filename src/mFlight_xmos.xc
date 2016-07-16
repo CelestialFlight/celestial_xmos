@@ -7,6 +7,8 @@
 extern "C"
 {
     #define va_list __VALIST // XMOS hack for getting va_list to work correctly.
+    #define __FUNCTION__ "Unknown"
+
     #include "common/serialBuffer.h"
     #include "common/uartOutput.h"
     #include "common/mixer.h"
@@ -14,14 +16,16 @@ extern "C"
     #include "filters/IMU/kalmanFilterSingleAxis.h"
     #include "filters/IMU/complementaryFilter.h"
     #include "filters/AHRS/MadgwickFilter.h"
-    #include "filters/lowpass/lowpassFilter.h"
+    #include "filters/recursive/biquadLPF.h"
     #include "feedback/PIDBasic.h"
+    #include "feedback/rate/rateModeBasic.h"
+    #include "feedback/angle/angleModeBasic.h"
     #include "sensors/imu/MPU/MPU6500.h"
     #include "sensors/magnetometer/MAG3110/MAG3110.h"
     #include "sensors/magnetometer/LSM303/LSM303.h"
     #include "sensors/barometer/BMP280/BMP280.h"
     #include "peripherals/sdcard.h"
-    #include "datalogging/dataLogger.h"
+
     #include "ff.h"
 }
 
@@ -31,11 +35,16 @@ extern "C"
 struct UartOutput uart1;
 struct PPMInput ppm;
 struct SDCard card;
-struct DataLogger dl;
+struct LSM303 mag;
+struct BMP280 bar;
+struct MPU6500 imu;
+struct PWMOutput pwm;
+struct HCSR04 ultra;
 
 port uart1Port = XS1_PORT_1F;
 port pwmPort = XS1_PORT_4E;
 port ppmPort = XS1_PORT_1G;
+port ledPort = XS1_PORT_1A;
 
 struct I2CDevicePortData imuI2cPort = {
     XS1_PORT_1J,
@@ -43,11 +52,17 @@ struct I2CDevicePortData imuI2cPort = {
     1000, // 100Khz
     };
 
+struct HCSR04PinData hcsrPorts = {
+    XS1_PORT_1P,
+    XS1_PORT_1I
+};
+
 void stablizeFlightMode(
     struct MPU6500* pImu,
     struct PPMInput* pPpm,
     struct PWMOutput* pwm,
-    struct UartOutput* pUart1){ unsafe
+    struct UartOutput* pUart1,
+    struct SerialBuffer* pDl){ unsafe
 {
     // Maps the controller channels to the commands they represent.
     const int RC_THROTTLE_CH = 2;
@@ -58,9 +73,9 @@ void stablizeFlightMode(
 
     // Maps axises with angular velocity max rotations (when the
     // controller stick is at max value)
-    const double RC_PITCH_VEL = 1.74533;
-    const double RC_ROLL_VEL = 1.74533;
-    const double RC_YAW_VEL = 1.74533;
+    const double RC_PITCH_VEL = 1.74533*2;
+    const double RC_ROLL_VEL = 1.74533*2;
+    const double RC_YAW_VEL = 1.74533*2;
 
     //
     const double RC_PITCH_POS = 3.00;
@@ -112,35 +127,8 @@ void stablizeFlightMode(
         {1,   -1,     1,    -1}  // FL prop
     };
 
-    /*struct ComplementaryFilter cfPitch;
-    struct ComplementaryFilter cfRoll;
-    ComplementaryFilterInit(&cfPitch, 0.995);
-    ComplementaryFilterInit(&cfRoll, 0.995);*/
-    // Setup SD card set to data.txt as a datalogger.
-
-    SDCardInit(&card);
-    if (!SDCardMount(&card))
-    {
-        printf("F = %ld, %ld\n", card.freeSpace, card.totalSpace);
-
-        // Delete and re-create data.txt
-        SDCardUnlink(&card, "data.txt");
-        SDCardOpen(&card, "data.txt");
-
-        // Create a datalogger that saves to the sd card buffer.
-        DataLoggerInit(&dl, &card.buf);
-    }
-    else
-    {
-        printf("SD Card Error\n");
-
-        // Create a datalogger that doesn't save anything as there is
-        // no sd card connected to the drone atm.
-        DataLoggerInit(&dl, 0);
-    }
-
-    DataLoggerPrintf(&dl, "Initializing rate mode controllers\n");
-    DataLoggerForceSave(&dl);
+    SerialBufferPrintf(pDl, "Initializing rate mode controllers\n");
+    SerialBufferForceSend(pDl);
 
     // Kalman filter for estimating true quadcopter angle.
     struct KalmanFilterSingleAxis kfPitch;
@@ -148,50 +136,50 @@ void stablizeFlightMode(
     KalmanFilterSingleAxisInit(&kfPitch, 0.001, 0.003, 0.03);
     KalmanFilterSingleAxisInit(&kfRoll, 0.001, 0.003, 0.03);
 
-    struct LowPassFilter accUpFilter;
-    struct LowPassFilter accForwardFilter;
-    struct LowPassFilter accRightFilter;
-    LowPassFilterInit(&accUpFilter);
-    LowPassFilterInit(&accForwardFilter);
-    LowPassFilterInit(&accRightFilter);
+    // Rate Mode Feedback
+    struct RateModeBasic rateMode;
+    RateModeBasicInit(&rateMode,
+        35, 80, 0, // Pitch PID
+        35, 60, 0, // Roll PID
+        100, 30, 0); // Yaw PID
 
-    // Rate PID's for angular velocity control.
-    struct PIDBasic ratePitchPID;
-    struct PIDBasic rateRollPID;
-    struct PIDBasic rateYawPID;
-    PIDBasicInit(&ratePitchPID, 40, 200, 0);
-    PIDBasicInit(&rateRollPID, 40, 200, 0);
-    PIDBasicInit(&rateYawPID, 120, 200, 0);
-    ratePitchPID.maxIntegral = 200;
-    rateRollPID.maxIntegral = 200;
-    rateYawPID.maxIntegral = 100;
+    struct BiquadLPF gyroPitchFilter, gyroRollFilter;
+    BiquadLPFInit(&gyroPitchFilter, 333.33, 40);
+    BiquadLPFInit(&gyroRollFilter, 333.33, 40);
 
-    struct PIDBasic posPitchPID;
-    struct PIDBasic posRollPID;
-    PIDBasicInit(&posPitchPID, 10, 0, 0);
-    PIDBasicInit(&posRollPID, 10, 0, 0);
-
-    UartOutputPrintf(pUart1, "Update Thread Loaded\n");
+    // Angle stablize feedback.
+    struct AngleModeBasic angleMode;
+    AngleModeBasicInit(&angleMode,
+        2, 0, 0, // Pitch PID
+        2, 0, 0, // Roll PID
+        0, 0, 0); // Yaw PID
 
     // Allow user to plug in battery and not mess up calibration
     delay_milliseconds(3000);
 
     // Calibrate gyro.
     int i;
-    double xBias = 0, yBias = 0, zBias = 0;
+    double gyroXBias = 0, gyroYBias = 0, gyroZBias = 0;
+    double accXBias = 0, accYBias = 0, accZBias = 0;
     for (i = 0; i < 100; i++)
     {
         MPU6500Sample(pImu);
-        xBias += pImu->gyroData.x;
-        yBias += pImu->gyroData.y;
-        zBias += pImu->gyroData.z;
+        gyroXBias += pImu->gyroData.x;
+        gyroYBias += pImu->gyroData.y;
+        gyroZBias += pImu->gyroData.z;
+
+        // This assumes that the accelerometer is perfectly up&down.
+        accXBias += pImu->accelData.x;
+        accYBias += pImu->accelData.y;
+        accZBias += pImu->accelData.z - 1;
 
         delay_milliseconds(10);
     }
 
     // Set gyro biases.  Everytime the gyroscope is read again, it will have
     // these biases subtracted from the sensor value.
-    MPU6500SetGyroBias(pImu, xBias/100.0, yBias/100.0, zBias/100);
+    MPU6500SetGyroBias(pImu, gyroXBias/100.0, gyroYBias/100.0, gyroZBias/100.0);
+    //MPU6500SetAccelBias(pImu, accXBias/100.0, accYBias/100.0, accZBias/100.0);
 
     // Calibrate controller stick's "Zero" point by using predefined values.
     PPMInputSetBias(pPpm, RC_THROTTLE_CH, 1000);
@@ -203,10 +191,12 @@ void stablizeFlightMode(
 
     int tmp = 0;
 
+    uint64_t targetTime = SystemTime();
+
     // Main Update Loop
     while (1==1)
     {
-        MPU6500Sample(pImu);
+        uint64_t loopStart = SystemTime();
 
         // Get values from ppm input.
         int throttleValue = PPMInputGetValue(pPpm, RC_THROTTLE_CH);
@@ -215,89 +205,91 @@ void stablizeFlightMode(
         int yawValue = PPMInputGetValue(pPpm, RC_YAW_CH);
         int flightModeValue = PPMInputGetValue(pPpm, RC_FLIGHT_MODE_CH);
 
-        //double targetPitchForwardPos = pitchValue / 500 * RC_PITCH_POS;
-        //double targetRollForwardPos = pitchValue / 500 * RC_ROLL_POS;
-        //double targetYawForwardPos = pitchValue / 500 * RC_YAW_POS;
-
-        // Calculate target angular velocities from controller stick values.
-        // (rad/sec)
-        double targetPitchForwardVel = pitchValue / 500.0 * RC_PITCH_VEL;
-        double targetRollRightVel = rollValue / 500.0 * RC_ROLL_VEL;
-        double targetYawRightVel = yawValue / 500.0 * RC_YAW_VEL;
-
-        // Get values from gyroscope (rad/sec)
-        double gyroPitchVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_PITCH);
-        double gyroRollVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_ROLL);
-        double gyroYawVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_YAW);
-
-        // Get values from accelerometer (g's)
-        double accUp = Vector3DGetValue(&pImu->accelData, RC_ACC_UP);
-        double accFor = Vector3DGetValue(&pImu->accelData, RC_ACC_FORWARD);
-        double accRight = Vector3DGetValue(&pImu->accelData, RC_ACC_RIGHT);
-
-        accUp = LowPassFilterSample(&accUpFilter, accUp);
-        accFor = LowPassFilterSample(&accForwardFilter, accFor);
-        accRight = LowPassFilterSample(&accRightFilter, accRight);
-
-        // Calculate pitch/roll angles from accelerometer data. (radians)
-        double pitchForwardAngle =
-            -atan2(accFor * RC_ACC_FORWARD_DIR,
-                sqrt(accFor * accFor + accUp * accUp));
-        double rollRightAngle =
-            -atan2(accRight * RC_ACC_RIGHT_DIR,
-                sqrt(accRight * accRight + accUp * accUp));
-
-        // Use Kalman filter to combine the gyro and accelerometer data
-        KalmanFilterSingleAxisUpdate(&kfPitch, pitchForwardAngle, gyroPitchVel, dT);
-        KalmanFilterSingleAxisUpdate(&kfRoll, rollRightAngle, gyroRollVel, dT);
-
-        double pitchAngle = kfPitch.state[0];
-        double rollAngle = kfRoll.state[0];
-
-        //double angPosPitchError = targetPitchForwardPos - pitchAngle;
-        //double angPosRollError = targetRollForwardPos - rollAngle;
-
-       // double targetPitchForwardVel = PIDBasicUpdate(&posPitchPID, angPosPitchError, dT);
-        //double targetRollRightVel = PIDBasicUpdate(&posRollPID, angPosRollError, dT);
-
-        // Calculate angular velocity errors.
-        double angVelPitchError =
-            targetPitchForwardVel - gyroPitchVel * RC_PITCH_FORWARD_DIR;
-        double angVelRollError =
-            targetRollRightVel - gyroRollVel * RC_ROLL_RIGHT_DIR;
-        double angVelYawError =
-            targetYawRightVel - gyroYawVel * RC_YAW_RIGHT_DIR;
+        unsafe
+        {
+           struct HCSR04* x = &ultra;
+           UartOutputPrintf(pUart1, "%f\n", x->distance);
+        }
 
         // Quadcopter is "Armed" when flight mode switch is triggered high.
         if (flightModeValue > 1700)
         {
-           int pitchPWM = PIDBasicUpdate(&ratePitchPID, angVelPitchError, dT);
-            int rollPWM = PIDBasicUpdate(&rateRollPID, angVelRollError, dT);
-            int yawPWM = PIDBasicUpdate(&rateYawPID, angVelYawError, dT);
+            MPU6500Sample(pImu);
 
-            //if (tmp++ % 4 == 0)
-            /*UartOutputPrintf(pUart1, "!ANG:%f,%f,%f\n",
-                    kfRoll.state[0] * 57.2958, kfPitch.state[0] * 57.2958, 0);*/
-            //UartOutputPrintf(pUart1, "::%f %f %f\n", angVelPitchError, angVelRollError, angVelYawError);
+            // Get values from gyroscope (rad/sec)
+            double gyroPitchVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_PITCH);
+            double gyroRollVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_ROLL);
+            double gyroYawVel = Vector3DGetValue(&pImu->gyroData, RC_GYRO_YAW);
 
-            int brPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_BR],
-                throttleValue, pitchPWM, rollPWM, yawPWM);
-            int blPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_BL],
-                throttleValue, pitchPWM, rollPWM, yawPWM);
-            int frPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_FR],
-                throttleValue, pitchPWM, rollPWM, yawPWM);
-            int flPWM = MixMotorValues(&QUAD_MIXER[MIXER_PROP_FL],
+            gyroPitchVel = BiquadLPFSample(&gyroPitchFilter, gyroPitchVel);
+            gyroRollVel = BiquadLPFSample(&gyroRollFilter, gyroRollVel);
+
+            // Get values from accelerometer (g's)
+            double accUp = Vector3DGetValue(&pImu->accelData, RC_ACC_UP);
+            double accFor = Vector3DGetValue(&pImu->accelData, RC_ACC_FORWARD);
+            double accRight = Vector3DGetValue(&pImu->accelData, RC_ACC_RIGHT);
+
+            // Calculate pitch/roll angles from accelerometer data. (radians)
+            double pitchForwardAngle =
+                -atan2(accFor * RC_ACC_FORWARD_DIR,
+                    sqrt(accFor * accFor + accUp * accUp));
+            double rollRightAngle =
+                -atan2(accRight * RC_ACC_RIGHT_DIR,
+                    sqrt(accRight * accRight + accUp * accUp));
+
+            // Use Kalman filter to combine the gyro and accelerometer data
+            KalmanFilterSingleAxisUpdate(&kfPitch, pitchForwardAngle, gyroPitchVel, dT);
+            KalmanFilterSingleAxisUpdate(&kfRoll, rollRightAngle, gyroRollVel, dT);
+
+            double pitchAngle = kfPitch.state[0];
+            double rollAngle = kfRoll.state[0];
+
+            // Calculate target angular velocities from controller stick values.
+            // (rad/sec)
+            double targetPitchForwardVel = pitchValue / 500.0 * RC_PITCH_VEL;
+            double targetRollRightVel = rollValue / 500.0 * RC_ROLL_VEL;
+            double targetYawRightVel = yawValue / 500.0 * RC_YAW_VEL;
+
+            double targetPitchForwardPos = pitchValue / 500.0 * 0.7;
+            double targetRollRightPos = rollValue / 500.0 * 0.7;
+
+            AngleModeBasicUpdate(&angleMode,
+                targetPitchForwardPos,
+                targetRollRightPos,
+                0,
+                pitchAngle,
+                rollAngle,
+                0,
+                dT);
+
+            RateModeBasicUpdate(&rateMode,
+                //targetPitchForwardVel,
+                //targetRollRightVel,
+                angleMode.pitchResult,
+                angleMode.rollResult,
+                targetYawRightVel,
+                gyroPitchVel * RC_PITCH_FORWARD_DIR,
+                gyroRollVel * RC_ROLL_RIGHT_DIR,
+                gyroYawVel * RC_YAW_RIGHT_DIR,
+                dT);
+
+            int pitchPWM = rateMode.pitchResult;
+            int rollPWM = rateMode.rollResult;
+            int yawPWM = rateMode.yawResult;
+
+            MixMotorValues(QUAD_MIXER,
+                sizeof(QUAD_MIXER)/sizeof(struct MotorMixer),
                 throttleValue, pitchPWM, rollPWM, yawPWM);
 
-            DataLoggerPrintf(&dl, "%f %f %f %f %f %f %d %d %d %d\n",
-                targetPitchForwardVel, targetRollRightVel, targetYawRightVel,
-                gyroPitchVel, gyroRollVel, gyroYawVel,
-                brPWM, blPWM, frPWM, flPWM);
+            PWMOutputSetMotor(pwm, PWM_PROP_TR, QUAD_MIXER[MIXER_PROP_FR].result);
+            PWMOutputSetMotor(pwm, PWM_PROP_TL, QUAD_MIXER[MIXER_PROP_FL].result);
+            PWMOutputSetMotor(pwm, PWM_PROP_BR, QUAD_MIXER[MIXER_PROP_BR].result);
+            PWMOutputSetMotor(pwm, PWM_PROP_BL, QUAD_MIXER[MIXER_PROP_BL].result);
 
-            PWMOutputSetMotor(pwm, PWM_PROP_TR, frPWM);
-            PWMOutputSetMotor(pwm, PWM_PROP_TL, flPWM);
-            PWMOutputSetMotor(pwm, PWM_PROP_BR, brPWM);
-            PWMOutputSetMotor(pwm, PWM_PROP_BL, blPWM);
+            uint64_t loopEnd = SystemTime();
+            SerialBufferPrintf(pDl, "%f %f %f %f %f %f %f %f %f %f %f %d\n",
+                targetRollRightVel, gyroRollVel, targetRollRightPos, rollAngle, pitchAngle, angleMode.rollResult, rateMode.rollResult,
+                rateMode.rollPID.error * rateMode.rollPID.kP, rateMode.rollPID.integral*rateMode.rollPID.kI, rateMode.yawPID.integral, (int)(loopEnd - loopStart));
         }
         // Kill the motors if something goes wrong and the switch is switched off.
         else
@@ -306,67 +298,52 @@ void stablizeFlightMode(
             for (i = 0; i < 4; i++) PWMOutputSetMotor(pwm, i, 0);
         }
 
-        delay_milliseconds(dT*1000);
-        /*
+        unsafe
+        {
+            struct HCSR04* pUltra;
+            pUltra = &ultra;
+            HCSR04Trigger(pUltra);
+        }
 
-        double ax = pImu->accelData.x;
-        double ay = pImu->accelData.y;
-        double az = pImu->accelData.z;
-        double gx = pImu->gyroData.x;
-        double gy = pImu->gyroData.y;
-        double gz = pImu->gyroData.z;
+        // Determine how long to wait until the next loop should execute.
+        targetTime += dT * 1000000;
+        int delayAmount = targetTime - SystemTime();
 
-        double pitchAngle =
-            -atan2(ax, sqrt(ay*ay + az*az)) * 57.2958;
-
-        double rollAngle =
-            -atan2(ay, sqrt(ax*ax + az*az)) * 57.2958;
-
-        double q0 = mf.q0;
-        double q1 = mf.q1;
-        double q2 = mf.q2;
-        double q3 = mf.q3;
-
-        double pitch = atan2(2*(q0*q1 + q2*q3), 1-2*(q1*q1 + q2*q2));
-        double roll = asin(2 *(q0*q2 - q3*q1));
-        double yaw = 0;//atan2(2*(q0*q3 + q1*q2), 1 - 2*(q2*q2 + q3*q3));
-        //KalmanFilterSingleAxisUpdate(&kfPitch, pitchAngle, pImu->gyroData.y, 0.01);
-        //KalmanFilterSingleAxisUpdate(&kfRoll, rollAngle, -pImu->gyroData.x, 0.01);
-        //ComplementaryFilterUpdate(&cfPitch, pitchAngle, pImu->gyroData.y, 0.01);
-        //ComplementaryFilterUpdate(&cfRoll, rollAngle, -pImu->gyroData.x, 0.01);
-
-        UartOutputSendString(pUart1, "!ANG:");
-        UartOutputSendDouble(pUart1, roll*RADTODEG); // Roll
-        UartOutputSendChar(pUart1, ',');
-        UartOutputSendDouble(pUart1, pitch*RADTODEG);//kfPitch.state[0]);
-        UartOutputSendChar(pUart1, ',');
-        UartOutputSendDouble(pUart1, yaw*RADTODEG);
-        UartOutputSendChar(pUart1, '\n');
-
-        delay_milliseconds(10);*/
+        // If the delay is less then zero, then it's time to execute again.
+        if (delayAmount > 0)
+            delay_microseconds(targetTime - SystemTime());
     }
 }}
 
-port ledPort = XS1_PORT_1A;
-
-void test(struct DataLogger* dl)
-{
-    DataLoggerPrintf(dl, "Data = %d %d %f\n", 1, 2, 3.1415);
-    DataLoggerPrintf(dl, "End of file :)\n");
-    DataLoggerForceSave(dl);
-
-    printf("Card closed!\n");
-
-    while (1);
-}
-
 int main()
 {
-    struct LSM303 mag;
-    struct BMP280 bar;
-    struct MPU6500 imu;
-    struct PWMOutput pwm;
+    printf("mFlight Started\n");
 
+    struct SerialBuffer* unsafe file0;
+
+    // Setup SD card set to data.txt as a datalogger
+    SDCardInit(&card, 4096);
+    file0 = SDCardGetBuffer(&card, 0);
+
+    UartOutputInit(&uart1, 115200);
+
+    if (!SDCardMount(&card))
+    {
+        printf("F = %ld, %ld\n", card.freeSpace, card.totalSpace);
+
+        // Delete and re-create data.txt
+        SDCardUnlink(&card, "data.txt");
+        SDCardUnlink(&card, "error.txt");
+        SDCardOpen(&card, 0, "data.txt");
+        SDCardOpen(&card, 1, "error.txt");
+
+        // Sets the global error output to the sd card error.txt file.
+        SetErrorOutput(SDCardGetBuffer(&card, 1));
+    }
+    else
+    {
+        printf("SD Card Error\n");
+    }
 
     // Initiate hardware.
     int mpuResult = MPU6500Init(&imu, &imuI2cPort);
@@ -390,10 +367,9 @@ int main()
     else
         printf("BAR280 Missing!\n");
 
-    PWMOutputInit(&pwm, &pwmPort);
+    PWMOutputInit(&pwm, &pwmPort, 400);
     PPMInputInit(&ppm, &ppmPort);
-
-
+    HCSR04Init(&ultra, &hcsrPorts);
 
     unsafe
     {
@@ -402,12 +378,15 @@ int main()
         struct UartOutput* unsafe pUart1;
         struct PWMOutput* unsafe pPwm;
         struct PPMInput* unsafe pPpm;
-        struct DataLogger* unsafe pDl;
+        struct SerialBuffer* unsafe pDl;
         struct SDCard* unsafe pCard;
+        struct HCSR04* unsafe pUltra;
         pUart1 = &uart1;
         pPwm = &pwm;
         pPpm = &ppm;
         pCard = &card;
+        pDl = file0;
+        pUltra = &ultra;
 
         par
         {
@@ -420,10 +399,11 @@ int main()
             // PWM Task
             pwmTask(&pwm);
 
+            // Ultrasonics
+            HCSR04Task((struct HCSR04*)pUltra, hcsrPorts.echoPort);
+
             // Updates System Time
             SystemTimeTask();
-
-            //test((struct DataLogger*)pDl);
 
             SDCardTask((struct SDCard*)pCard);
 
@@ -431,7 +411,8 @@ int main()
                 &imu,
                 (struct PPMInput*)pPpm,
                 (struct PWMOutput*)pPwm,
-                (struct UartOutput*)pUart1);
+                (struct UartOutput*)pUart1,
+                (struct SerialBuffer*)pDl);
         }
     }
     return 0;

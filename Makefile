@@ -27,3 +27,9 @@ VERBOSE = 0
 
 XMOS_MAKE_PATH ?= ../..
 -include $(XMOS_MAKE_PATH)/xcommon/module_xcommon/build/Makefile.common
+
+EXCLUDE_FILES = 
+
+SOURCE_DIRS = bindings/common bindings/peripherals bindings/peripherals/fatfs bindings/sensors bindings/sensors/gps bindings/sensors/ultrasonic/HCSR04 mflight mflight/modules/common mflight/modules/datalogging mflight/modules/feedback mflight/modules/feedback/angle mflight/modules/feedback/rate mflight/modules/filters mflight/modules/filters/AHRS mflight/modules/filters/IMU mflight/modules/filters/lowpass mflight/modules/filters/recursive mflight/modules/model mflight/modules/peripherals mflight/modules/peripherals/fatfs mflight/modules/sensors mflight/modules/sensors/barometer/BMP280 mflight/modules/sensors/barometer/MS56xx mflight/modules/sensors/gps/ultraTrackers mflight/modules/sensors/imu/MPU mflight/modules/sensors/magnetometer/LSM303 mflight/modules/sensors/magnetometer/MAG3110 mflight/modules/sensors/tachometer/rawIRTachometer mflight/modules/sensors/ultrasonic/HCSR04 mflight/modules/sensors/ultrasonic/raw src
+
+ARM_ONLY_DIRS = mflight/tests

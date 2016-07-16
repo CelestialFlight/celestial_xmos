@@ -18,6 +18,5 @@
 .linkset SerialBufferPrintfVargs.nstackwords, 100
 .globl SerialBufferSaveChar.nstackwords
 #.linkset SerialBufferSaveChar.nstackwords, 100
-
-.globl DataLoggerForceSave.nstackwords
-.linkset DataLoggerForceSave.nstackwords, 100
+.globl SerialBufferForceSend.nstackwords
+.linkset SerialBufferForceSend.nstackwords, 100
