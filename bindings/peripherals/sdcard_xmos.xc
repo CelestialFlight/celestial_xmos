@@ -15,7 +15,7 @@ void SDCardTask(volatile struct SDCard* unsafe card)
         while(1==1)
         {
             int i;
-            for (i = 0; i < _SD_MAX_FILES; i++)
+            for (i = 0; i < card->numberOfFiles; i++)
             {
                 // If a force save was requested, or 5 seconds has ellasped
                 // since the last save.

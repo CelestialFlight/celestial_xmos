@@ -1,3 +1,6 @@
-[submodule "mflight"]
-	path = mflight
-	url = https://github.com/jmarple/mflight
+[submodule "Celestial"]
+	path = Celestial
+	url = https://github.com/CelestialFlight/Celestial
+[submodule "celestial"]
+	path = celestial
+	url = https://github.com/CelestialFlight/celestial

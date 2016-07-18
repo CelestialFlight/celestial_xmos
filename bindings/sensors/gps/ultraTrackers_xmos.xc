@@ -9,6 +9,8 @@ void UltrasonicTrackers(struct SerialBuffer* buf)
     uint32_t time;
     tim :> time;
 
+    SerialBufferPrintf(buf, "Yo\n");
+
     unsafe
     {
         struct UltraTrackers trackers;

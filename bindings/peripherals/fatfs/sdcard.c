@@ -5,17 +5,33 @@
 static void _SDCardPrintCallback(struct SDCardFatFSFile* card);
 static void _SDCardForceSendCallback(struct SDCardFatFSFile* card);
 
-int SDCardInit(struct SDCard* card, int bufferSize)
+int SDCardInit(struct SDCard* card, int numOfFiles, int bufferSize)
 {
-    error(card != 0);
+    if (error(card != 0)) return -1;
+
+    // Attempt to allocate memory for the files.
+    card->files = (struct SDCardFatFSFile*)malloc(sizeof(struct SDCardFatFSFile)*numOfFiles);
+
+    // Report and error if the program ran out of memory.
+    if (error(card->files != 0))
+    {
+        verbose("Ran out of memory!");
+        return 1;
+    }
+
+    card->numberOfFiles = numOfFiles;
 
     int i;
-    for (i = 0; i < _SD_MAX_FILES; i++)
+    for (i = 0; i < numOfFiles; i++)
     {
         card->files[i].shouldSendBuffer = 0;
+        card->files[i].fileOpened = 0;
 
         // Initialize buffers.
-        SerialBufferInit(&card->files[i].buf, bufferSize);
+        int result = SerialBufferInit(&card->files[i].buf, bufferSize);
+
+        // Report an error if the serial buffer couldn't be given memory.
+        if (error(result == 0)) verbose("Ran out of memory!");
 
         // Set Callback functions
         card->files[i].buf.sendPrintf = &_SDCardPrintCallback;
@@ -70,18 +86,26 @@ int SDCardMount(struct SDCard* card)
     return 0;
 }
 
-int SDCardUnlink(struct SDCard* card, const char* fileName)
+int SDCardDelete(struct SDCard* card, const char* fileName)
 {
-    error(card != 0);
+    // Defensive checks.
+    if (error(card != 0)) return -1;
 
     return f_unlink(fileName);
 }
 
 int SDCardOpen(struct SDCard* card, int fileNum, const char* fileName)
 {
-    error(card != 0);
+    if (error(card != 0)) return -1;
+    if (error(card->numberOfFiles > fileNum)) return -1;
 
-    return f_open(&card->files[fileNum].Fil, fileName, FA_WRITE | FA_OPEN_ALWAYS);
+    // Attempt to open a certain file.
+    int result = f_open(&card->files[fileNum].Fil, fileName, FA_WRITE | FA_OPEN_ALWAYS);
+
+    // If the sd card found the file, flag this file as been opened.
+    if (result == 0) card->files[fileNum].fileOpened = 1;
+
+    return result;
 }
 
 int SDCardPrintf(struct SDCard* card, int fileNum, char* c, ...)
@@ -102,12 +126,21 @@ int SDCardSync(struct SDCardFatFSFile* card)
 {
     error(card != 0);
 
+    // Ensure this card has been opened before writing to it.
+    // If this check isn't here, a memory access exception can occur in f_write.
+    if (card->fileOpened != 1) return 1;
+
     return f_sync(&card->Fil);
 }
 
 int SDCardWrite(struct SDCardFatFSFile* card, void* buf, int num)
 {
-    error(card != 0);
+    // Defensive checks.
+    if (error(card != 0)) return -1;
+
+    // Ensure this card has been opened before writing to it.
+    // If this check isn't here, a memory access exception can occur in f_write.
+    if (card->fileOpened != 1) return 1;
 
     UINT wb;
     return f_write(&card->Fil, buf, num, &wb);
@@ -127,11 +160,14 @@ void SDCardForceWriteBuffer(volatile struct SDCard* card, int fileNum)
     while (card->files[fileNum].shouldSendBuffer == 1);*/
 }
 
-int SDCardClose(struct SDCard* card, int file)
+int SDCardClose(struct SDCardFatFSFile* card)
 {
-    error(card != 0);
+    // Defensive check.
+    if (error(card != 0)) return -1;
 
-    return f_close(&card->files[file].Fil);
+    card->fileOpened = 0;
+
+    return f_close(&card->Fil);
 }
 
 struct SerialBuffer* SDCardGetBuffer(struct SDCard* card, int fileNum)

@@ -64,11 +64,21 @@ void stablizeFlightMode(
     struct UartOutput* pUart1,
     struct SerialBuffer* pDl){ unsafe
 {
+
+    struct HCSR04* pUltra;
+
+    unsafe
+    {
+        pUltra = &ultra;
+        HCSR04Trigger(pUltra);
+    }
+
     // Maps the controller channels to the commands they represent.
     const int RC_THROTTLE_CH = 2;
     const int RC_PITCH_CH = 1;
     const int RC_ROLL_CH = 0;
     const int RC_YAW_CH = 3;
+    const int RC_AUTO_MODE_CH = 4;
     const int RC_FLIGHT_MODE_CH = 5;
 
     // Maps axises with angular velocity max rotations (when the
@@ -147,6 +157,9 @@ void stablizeFlightMode(
     BiquadLPFInit(&gyroPitchFilter, 333.33, 40);
     BiquadLPFInit(&gyroRollFilter, 333.33, 40);
 
+    struct BiquadLPF ultraFilter;
+    BiquadLPFInit(&ultraFilter, 333.33, 40);
+
     // Angle stablize feedback.
     struct AngleModeBasic angleMode;
     AngleModeBasicInit(&angleMode,
@@ -179,7 +192,7 @@ void stablizeFlightMode(
     // Set gyro biases.  Everytime the gyroscope is read again, it will have
     // these biases subtracted from the sensor value.
     MPU6500SetGyroBias(pImu, gyroXBias/100.0, gyroYBias/100.0, gyroZBias/100.0);
-    //MPU6500SetAccelBias(pImu, accXBias/100.0, accYBias/100.0, accZBias/100.0);
+    MPU6500SetAccelBias(pImu, accXBias/100.0, accYBias/100.0, accZBias/100.0);
 
     // Calibrate controller stick's "Zero" point by using predefined values.
     PPMInputSetBias(pPpm, RC_THROTTLE_CH, 1000);
@@ -203,13 +216,8 @@ void stablizeFlightMode(
         int pitchValue = PPMInputGetValue(pPpm, RC_PITCH_CH);
         int rollValue = PPMInputGetValue(pPpm, RC_ROLL_CH);
         int yawValue = PPMInputGetValue(pPpm, RC_YAW_CH);
+        int autoModeValue = PPMInputGetValue(pPpm, RC_AUTO_MODE_CH);
         int flightModeValue = PPMInputGetValue(pPpm, RC_FLIGHT_MODE_CH);
-
-        unsafe
-        {
-           struct HCSR04* x = &ultra;
-           UartOutputPrintf(pUart1, "%f\n", x->distance);
-        }
 
         // Quadcopter is "Armed" when flight mode switch is triggered high.
         if (flightModeValue > 1700)
@@ -253,6 +261,9 @@ void stablizeFlightMode(
             double targetPitchForwardPos = pitchValue / 500.0 * 0.7;
             double targetRollRightPos = rollValue / 500.0 * 0.7;
 
+            if (pitchValue < 15 && pitchValue > -15) targetPitchForwardPos = 0;
+            if (rollValue < 15 && rollValue > -15) targetRollRightPos = 0;
+
             AngleModeBasicUpdate(&angleMode,
                 targetPitchForwardPos,
                 targetRollRightPos,
@@ -286,23 +297,26 @@ void stablizeFlightMode(
             PWMOutputSetMotor(pwm, PWM_PROP_BR, QUAD_MIXER[MIXER_PROP_BR].result);
             PWMOutputSetMotor(pwm, PWM_PROP_BL, QUAD_MIXER[MIXER_PROP_BL].result);
 
+            // Trigger ultrasonics to pulse again.
+            HCSR04Trigger(pUltra);
+
             uint64_t loopEnd = SystemTime();
-            SerialBufferPrintf(pDl, "%f %f %f %f %f %f %f %f %f %f %f %d\n",
-                targetRollRightVel, gyroRollVel, targetRollRightPos, rollAngle, pitchAngle, angleMode.rollResult, rateMode.rollResult,
-                rateMode.rollPID.error * rateMode.rollPID.kP, rateMode.rollPID.integral*rateMode.rollPID.kI, rateMode.yawPID.integral, (int)(loopEnd - loopStart));
+            int loopLength = loopEnd - loopStart;
+
+            SerialBufferPrintf(pDl, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %d %d %d %d %d\n",
+                targetPitchForwardPos, targetRollRightPos,
+                pitchAngle, rollAngle,
+                angleMode.pitchResult, angleMode.rollResult,
+                gyroPitchVel, gyroRollVel, gyroYawVel,
+                accUp, accFor, accRight,
+                targetPitchForwardVel, targetRollRightVel, targetYawRightVel, pUltra->distance,
+                pitchPWM, rollPWM, yawPWM, throttleValue, loopLength);
         }
         // Kill the motors if something goes wrong and the switch is switched off.
         else
         {
             int i;
             for (i = 0; i < 4; i++) PWMOutputSetMotor(pwm, i, 0);
-        }
-
-        unsafe
-        {
-            struct HCSR04* pUltra;
-            pUltra = &ultra;
-            HCSR04Trigger(pUltra);
         }
 
         // Determine how long to wait until the next loop should execute.
@@ -322,28 +336,33 @@ int main()
     struct SerialBuffer* unsafe file0;
 
     // Setup SD card set to data.txt as a datalogger
-    SDCardInit(&card, 4096);
-    file0 = SDCardGetBuffer(&card, 0);
-
-    UartOutputInit(&uart1, 115200);
+    SDCardInit(&card, 2, 4096);
+    file0 = SDCardGetBuffer(&card, 1);
 
     if (!SDCardMount(&card))
     {
         printf("F = %ld, %ld\n", card.freeSpace, card.totalSpace);
 
-        // Delete and re-create data.txt
-        SDCardUnlink(&card, "data.txt");
-        SDCardUnlink(&card, "error.txt");
-        SDCardOpen(&card, 0, "data.txt");
-        SDCardOpen(&card, 1, "error.txt");
+        // Delete and re-create error log file.
+        // It's best to create this file first incase heap space runs out later.
+        SDCardDelete(&card, "error.txt");
+        SDCardOpen(&card, 0, "error.txt");
 
         // Sets the global error output to the sd card error.txt file.
         SetErrorOutput(SDCardGetBuffer(&card, 1));
+
+        // Delete and re-create data.txt
+        SDCardDelete(&card, "data.txt");
+        SDCardOpen(&card, 1, "data.txt");
+
+        verbose("SD Card Loaded Succesfully");
     }
     else
     {
-        printf("SD Card Error\n");
+        verbose("SD Card Error");
     }
+
+    UartOutputInit(&uart1, 115200);
 
     // Initiate hardware.
     int mpuResult = MPU6500Init(&imu, &imuI2cPort);
@@ -400,7 +419,8 @@ int main()
             pwmTask(&pwm);
 
             // Ultrasonics
-            HCSR04Task((struct HCSR04*)pUltra, hcsrPorts.echoPort);
+            //HCSR04Task((struct HCSR04*)pUltra, hcsrPorts.echoPort);
+            //UltrasonicTrackers((struct SerialBuffer*)&pUart1->buf);
 
             // Updates System Time
             SystemTimeTask();

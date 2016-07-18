@@ -5,17 +5,20 @@ extern "C"
 {
     // XMOS hack to get va_list to compile on .xc files correctly.
     #define va_list __VALIST
+    #define __FUNCTION__ "Unknown"
 
     #include "serialBuffer.h"
     #include "uartOutput.h"
+    #include "common/error.h"
 
     void UartOutputInit(struct UartOutput* output, uint32_t baud)
     {
+        // Set baud rate.
         UartOutputSetBaud(output, baud);
-        SerialBufferInit(&output->buf, 256);
 
-        // Nothing else to do as the hardware will be setup in it's
-        // own task.
+        // Allocate memory for the buffer.
+        int result = SerialBufferInit(&output->buf, 256);
+        if (error(result == 0)) verbose("Ran out of memory!");
     }
 
     void UartOutputDeinit(struct UartOutput* output)
@@ -48,7 +51,6 @@ void UartOutputTask(struct UartOutput* output, port outputPort)
     outputPort <: 1;
 
     UartOutputSetBaud(output, 115200);
-
     int currentBit = -1;
     uint8_t curByte = 0;
 
